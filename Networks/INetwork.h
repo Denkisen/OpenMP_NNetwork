@@ -2,6 +2,7 @@
 #define __CPU_NW_NETWORKS_INETWORK_H
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <exception>
 #include <omp.h>
@@ -18,9 +19,7 @@ protected:
   Weights weights = nullptr;
   std::vector<size_t> weights_layout;
   std::mutex pass_forward_mutex;
-public:
-  INetwork() = default;
-  ~INetwork() 
+  void Clean()
   {
     if (weights != nullptr)
     {
@@ -32,6 +31,14 @@ public:
       }
       delete[] weights;
     }
+    weights_layout.clear();
+    weights = nullptr;
+  }
+public:
+  INetwork() = default;
+  ~INetwork() 
+  {
+    Clean();
   }
   virtual std::vector<double> Pass(std::vector<double> input) = 0;
   virtual std::vector<double> Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout) = 0;
