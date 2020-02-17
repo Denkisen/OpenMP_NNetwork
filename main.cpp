@@ -10,10 +10,10 @@ int main(int argc, char const *argv[])
   std::vector<size_t> w_layout;  
   ValueTable temp = nullptr;
   std::vector<size_t> t_layout;
-  net.Load("test.txt");
-  // net.AddLayer(5);
-  // net.AddLayer(10);
-  // net.AddLayer(6);
+  //net.Load("test.txt");
+  net.AddLayer(5);
+  net.AddLayer(10);
+  net.AddLayer(6);
   
   w = net.GetWeights(w_layout);
   std::vector<double> input;
@@ -72,21 +72,21 @@ int main(int argc, char const *argv[])
 
   net.Bias(false);
   result.clear();
-  result = net.Pass(input, temp, t_layout);
+  result = net.Pass(input);
 
-  if (temp != nullptr)
-  {
-    std::cout << "Temp: " << t_layout.size() << std::endl;
-    for (size_t i = 0; i < t_layout.size(); ++i)
-    {
-      std::cout << "Temp layer: " << t_layout[i] << std::endl;
-      for (size_t j = 0; j < t_layout[i]; ++j)
-      {
-        std::cout << temp[i][j] << " ";
-      }
-      std::cout << std::endl;
-    }
-  }
+  // if (temp != nullptr)
+  // {
+  //   std::cout << "Temp: " << t_layout.size() << std::endl;
+  //   for (size_t i = 0; i < t_layout.size(); ++i)
+  //   {
+  //     std::cout << "Temp layer: " << t_layout[i] << std::endl;
+  //     for (size_t j = 0; j < t_layout[i]; ++j)
+  //     {
+  //       std::cout << temp[i][j] << " ";
+  //     }
+  //     std::cout << std::endl;
+  //   }
+  // }
 
   std::cout << "Result:" << std::endl;
   for (size_t i = 0; i < result.size(); ++i)

@@ -64,6 +64,9 @@ std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input)
   ValueTable temp;
   std::vector<size_t> layout;
   return Pass(input, temp, layout);
+  for (size_t i = 0; i < layout.size(); ++i)
+    delete[] temp[i];
+  delete[] temp;
 }
 
 void MultiLayerPerceptron::AddLayer(size_t size)
@@ -112,6 +115,7 @@ void MultiLayerPerceptron::AddLayer(size_t size)
 
 Weights MultiLayerPerceptron::GetWeights(std::vector<size_t> &layout)
 {
+  
   layout = weights_layout;
   return weights;
 }
