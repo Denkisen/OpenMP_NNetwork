@@ -37,8 +37,9 @@ std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input, ValueT
   for (size_t i = 1; i < t_val_size; ++i)
   {
     #pragma omp parallel for
-    for (size_t j = 0; j < t_weights_layout[i]; ++j)
+    for (size_t j = 0; j < t_weights_layout[i] - 1; ++j)
     {  
+      
       double sum = 0.0; 
       t_val[i - 1][t_weights_layout[i - 1] - 1] = bias ? 1 : 0;
       for (size_t l = 0; l < t_weights_layout[i - 1]; ++l)
@@ -53,7 +54,7 @@ std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input, ValueT
   temporary_layers_values = t_val;
   layout.resize(t_val_size);
   std::copy(t_weights_layout, &t_weights_layout[t_val_size], layout.begin());
-  result.resize(t_weights_layout[t_val_size - 1]);
+  result.resize(t_weights_layout[t_val_size - 1] - 1);
   std::copy(t_val[t_val_size - 1], &t_val[t_val_size - 1][result.size()],result.begin());
 
   return result;
@@ -63,10 +64,12 @@ std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input)
 {
   ValueTable temp;
   std::vector<size_t> layout;
-  return Pass(input, temp, layout);
+  std::vector result = Pass(input, temp, layout);
   for (size_t i = 0; i < layout.size(); ++i)
     delete[] temp[i];
   delete[] temp;
+
+  return result;
 }
 
 void MultiLayerPerceptron::AddLayer(size_t size)

@@ -7,9 +7,22 @@ class BackProp
 {
 private:
   INetwork *network;
+  std::mutex network_mutex;
+  ActivationFunc *activation_func = [](double x){ return x; };
+  ActivationFunc *activation_func_deriv = [](double x){ return x; };
+  double nu = 0.01; // learning speed
+  std::string log_file_path = "";
+  std::ofstream log;
+  void ToLog(std::string text);
 public:
-  BackProp(/* args */);
-  void SetNetwork(INetwork &net);
+  BackProp();
+  void SetNetwork(INetwork *net);
+  void LearningSpeed(double val);
+  double LearningSpeed() { return nu; }
+  void LogFile(std::string file_path);
+  std::vector<double> DoItteration(std::vector<double> input, std::vector<double> expect);
+  double DoBatch(std::vector<std::vector<double>> input, std::vector<std::vector<double>> expect);
+  void SetActivationFunction(ActivationFunc func, ActivationFunc derivative);
   ~BackProp();
 };
 
