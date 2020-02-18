@@ -6,8 +6,8 @@ CXXFLAGS = -std=c++17 -fopenmp -foffload=-lm -O0 -g -Wall -Warray-bounds -Wdiv-b
 CXXFLAGS += -DDEBUG
 LDFLAGS = -lgomp
 
-VPATH = Networks Learning Functions
-SOURCE = main.cpp $(wildcard Networks/*.cpp) $(wildcard Learning/*.cpp) $(wildcard Functions/*.cpp)
+VPATH = Networks Learning Functions DataProviders
+SOURCE = main.cpp $(wildcard Networks/*.cpp) $(wildcard Learning/*.cpp) $(wildcard Functions/*.cpp) $(wildcard DataProviders/*.cpp)
 
 OBJECTS = $(notdir $(SOURCE:.cpp=.o))
 

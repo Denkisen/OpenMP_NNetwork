@@ -66,7 +66,7 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
     result = network->Pass(input, v, t_layout);
     w = network->GetWeights(w_layout);
   }
-  catch (std::exception e)
+  catch (...)
   {
     ToLog(std::string(__func__) + "() Error: std::vector<double> result = network->Pass(input, v, t_layout)");
     return result;
@@ -107,12 +107,12 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
     correction_priv = correction;
   }
 
-  // std::cout << "Result:" << std::endl;
-  // for (size_t i = 0; i < result.size(); ++i)
-  // {
-  //   std::cout << result[i] << " ";
-  // }
-  // std::cout << std::endl;
+  std::cout << "Result:" << std::endl;
+  for (size_t i = 0; i < result.size(); ++i)
+  {
+    std::cout << result[i] << " ";
+  }
+  std::cout << std::endl;
 
   if (v != nullptr)
   {

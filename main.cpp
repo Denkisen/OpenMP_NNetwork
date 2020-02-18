@@ -2,6 +2,7 @@
 #include "Networks/MultiLayerPerceptron.h"
 #include "Learning/BackProp.h"
 #include "Functions/activation_functions.h"
+#include "DataProviders/Images.h"
 
 double ActFunc(double x)
 {
@@ -17,6 +18,20 @@ int main(int argc, char const *argv[])
 {
 //#pragma omp target teams distribute parallel for reduction(+:sum) map(tofrom:sum)
 //#pragma omp parallel for reduction(+:sum)
+
+  Image im = OpenImage("test/175238.jpg");
+  if (im.canva != nullptr)
+  {
+    std::cout << "Size: " << im.width << "x" << im.height << std::endl;  
+    Image res = GrayscaleImage(im);
+    SaveImage("test/res.jpg", res);
+    FreeImage(im);
+    FreeImage(res);
+  }
+
+
+  return 0;
+
   MultiLayerPerceptron net;
   net.SetActivationFunc(ActFunc); 
   net.SetWeightInitFunc([](){ return 0.5; });
