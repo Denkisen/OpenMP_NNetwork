@@ -11,11 +11,24 @@ struct Image
   unsigned char *canva = nullptr;
 };
 
+class TransformFunction
+{
+public:
+  virtual void Transform(Image data, double val = 1.0) {}
+};
+
+class StripCorruptionFunction : public TransformFunction
+{
+public:
+  void Transform(Image data, double val);
+};
 
 Image OpenImage(std::string file_path);
 void SaveImage(std::string file_path, Image data);
 void FreeImage(Image data);
 Image ResizeImage(Image data, int w, int h);
+Image CutOfImage(Image data, int x, int y, int w, int h);
 Image GrayscaleImage(Image data);
+Image CorruptImage(Image data, int corruption_percentage, TransformFunction &&transform);
 
 #endif

@@ -9,8 +9,8 @@ class MultiLayerPerceptron : public INetwork
 {
 private:
   bool bias = true;
-  ActivationFunc *activation_func = [](double x){ return x < 0 ? x * 0.01 : x; };
-  WeightInitFunc *weight_init_func = [](){ return double(std::rand()) / (double(RAND_MAX) + 1.0); };
+  ActivationFunc *activation_func = [](double x) { return (x < 0 ? x * 0.01 : x); };
+  WeightInitFunc *weight_init_func = []() { return ((double) std::rand() / RAND_MAX) - 0.5; };
 public:
   MultiLayerPerceptron();
   ~MultiLayerPerceptron();
@@ -18,9 +18,10 @@ public:
   std::vector<double> Pass(std::vector<double> input);
   std::vector<double> Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout);
   void AddLayer(size_t size);
+  void SetLayersCount(size_t size);
   Weights GetWeights(std::vector<size_t> &layout);
-  void Load(std::string file_path);
-  void Save(std::string file_path);
+  bool Load(std::string file_path);
+  void Save(std::string file_path, std::string comments);
 
   bool Bias();
   void Bias(bool state);

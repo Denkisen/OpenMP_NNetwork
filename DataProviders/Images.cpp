@@ -5,6 +5,9 @@
 #include "../libs/Stb/stb_image.h"
 #include "../libs/Stb/stb_image_write.h"
 #include "../libs/Stb/stb_image_resize.h"
+#include <cstring>
+#include <cstdlib>
+#include <ctime>
 
 Image OpenImage(std::string file_path)
 {
@@ -46,6 +49,22 @@ Image ResizeImage(Image data, int w, int h)
   return result;
 }
 
+Image CutOfImage(Image data, int x, int y, int w, int h)
+{
+  Image result = {};
+  result.height = h;
+  result.width = w;
+  result.bpp = data.bpp;
+  result.canva = new unsigned char[result.height * result.width * result.bpp];
+
+  #pragma omp parallel for
+  for (int i = 0; i < h; ++i)
+  {
+    std::memcpy(&result.canva[i * (w * data.bpp)], (data.canva + (data.width * data.bpp * (i + y)) + (x * data.bpp)), w * data.bpp);
+  }
+  return result;
+}
+
 Image GrayscaleImage(Image data)
 {
   Image result = {};
@@ -61,4 +80,30 @@ Image GrayscaleImage(Image data)
     result.canva[i] = (unsigned char) ((double) data.canva[shift] * 0.2126 + (double) data.canva[shift + 1] * 0.7152 + (double) data.canva[shift + 2] * 0.0722);
   }
   return result;
+}
+
+Image CorruptImage(Image data, int corruption_percentage, TransformFunction &&transform)
+{
+  Image result = {};
+  result.height = data.height;
+  result.width = data.width;
+  result.bpp = data.bpp;
+  result.canva = new unsigned char[result.height * result.width * result.bpp];
+  std::memcpy(result.canva, data.canva, result.height * result.width * result.bpp);
+  transform.Transform(result, corruption_percentage * 0.01);
+
+  return result;
+}
+
+void StripCorruptionFunction::Transform(Image data, double val)
+{
+  int w = std::rand() % (int) trunc(data.width * val);
+  int h = std::rand() % (int) trunc(data.height * val);  
+  int x = std::rand() % (int) trunc(data.width - w);
+  int y = std::rand() % (int) trunc(data.height - h);
+
+  for (int i = 0; i < h; ++i)
+  {
+    std::memset(&data.canva[(data.width * data.bpp * (i + y)) + (x * data.bpp)], 0, sizeof(unsigned char) * w);
+  }
 }

@@ -1,1 +1,3 @@
-# OpenMP_NNetwork
+# Requirements
+    * Vulkan
+    * OpenMP

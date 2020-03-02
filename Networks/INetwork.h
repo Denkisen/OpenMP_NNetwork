@@ -42,10 +42,9 @@ public:
   }
   virtual std::vector<double> Pass(std::vector<double> input) = 0;
   virtual std::vector<double> Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout) = 0;
-  virtual void AddLayer(size_t size) = 0;
   virtual Weights GetWeights(std::vector<size_t> &layout) = 0;
-  virtual void Load(std::string file_path) = 0;
-  virtual void Save(std::string file_path) = 0;
+  virtual bool Load(std::string file_path) = 0;
+  virtual void Save(std::string file_path, std::string comments) = 0;
 };
 
 

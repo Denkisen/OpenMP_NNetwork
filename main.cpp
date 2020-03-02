@@ -1,17 +1,33 @@
 #include <iostream>
+#include <cmath>
 #include "Networks/MultiLayerPerceptron.h"
 #include "Learning/BackProp.h"
 #include "Functions/activation_functions.h"
 #include "DataProviders/Images.h"
+#include "libs/Math/SimpleMath.h"
+#include "libs/SpeedTest.h"
+#include "libs/Vulkan/Array.h"
+#include "libs/Vulkan/Instance.h"
+#include "libs/Vulkan/Device.h"
+
+#include "libs/Vulkan/Offload.h"
+
+#define CONF_FILE "conf.txt"
+#define LOG_FILE "log.txt"
+#define COMMENTS "Fix image 40x40 MLP."
+#define TRAIN_SET "/home/marko/Documents/Projects/NeuralNetworks/Training_Set/set.txt"
+#define TRAIN_SPEED 0.01
+#define MOMENTUM 0.01
+
 
 double ActFunc(double x)
 {
-  return Leaky_ReLu(x, 0.01);
+  return Tanh(x, 0.1);//Leaky_ReLu(x, 0.01);
 }
 
 double DerFunc(double x)
 {
-  return Derivative_Leaky_ReLu(x, 0.01);
+  return Derivative_Tanh(x, 0.1);//Derivative_Leaky_ReLu(x, 0.01);
 }
 
 int main(int argc, char const *argv[])
@@ -19,127 +35,109 @@ int main(int argc, char const *argv[])
 //#pragma omp target teams distribute parallel for reduction(+:sum) map(tofrom:sum)
 //#pragma omp parallel for reduction(+:sum)
 
-  Image im = OpenImage("test/175238.jpg");
-  if (im.canva != nullptr)
+  try 
   {
-    std::cout << "Size: " << im.width << "x" << im.height << std::endl;  
-    Image res = GrayscaleImage(im);
-    SaveImage("test/res.jpg", res);
-    FreeImage(im);
-    FreeImage(res);
+    Vulkan::Instance instance;
+    Vulkan::Device device(instance, Vulkan::Discrete);
+    std::vector<float> inp(64, 5.0);
+    Vulkan::Array<float> input(device, inp);
+    std::vector<float> out(64, 0.0);
+    Vulkan::Array<float> output(device, out);
+    std::vector<Vulkan::Array<float>*> data;
+    data.push_back(&input);
+    data.push_back(&output);
+    Vulkan::Offload<float> offload(device, data, "bin/comp.spv");
+    offload.Run();
+    out = output.Extract();
+    std::cout << "Output:" << std::endl;
+    for (size_t i = 0; i < out.size(); ++i)
+    {
+      std::cout << out[i] << " ";
+    }
+    std::cout << std::endl;
   }
-
+  catch(const std::runtime_error& e)
+  {
+    std::cout << e.what() << std::endl;
+  }
+  std::cout << "Spok" << std::endl;
 
   return 0;
-
   MultiLayerPerceptron net;
-  net.SetActivationFunc(ActFunc); 
-  net.SetWeightInitFunc([](){ return 0.5; });
-  //net.Load("test.txt");
-  net.AddLayer(5);
-  net.AddLayer(10);
-  net.AddLayer(6);
-
-  BackProp back;
-  back.SetNetwork(&net);
-  back.SetActivationFunction(ActFunc, DerFunc);
-  back.LearningSpeed(0.01);
-  back.LogFile("log.txt");
-  Weights w = nullptr;
-  std::vector<size_t> w_layout;  
-  //ValueTable temp = nullptr;
-  //std::vector<size_t> t_layout;
-
-  
-  w = net.GetWeights(w_layout);
-  std::vector<double> input;
-  input.push_back(5.0);
-  input.push_back(5.0);
-  input.push_back(5.0);
-  input.push_back(5.0);
-  input.push_back(5.0);
-
-  std::vector<double> expect;
-  expect.push_back(5.0);
-  expect.push_back(5.0);
-  expect.push_back(5.0);
-  expect.push_back(5.0);
-  expect.push_back(5.0);
-  expect.push_back(5.0);
-
-  std::cout << std::endl;
-  std::cout << std::endl;
-  
-  // for (size_t i = 0; i < w_layout.size(); ++i) // Layer
-  // {
-  //   for (size_t j = 0; j < w_layout[i]; ++j) // Neuron
-  //   {
-  //     if (i > 0)
-  //     {
-  //       std::cout << "Neuron:" << std::endl;
-  //       for (size_t l = 0; l < w_layout[i - 1]; ++l) // Back
-  //       {
-  //         std::cout << w[i][j][l] << " ";
-  //       }
-  //       std::cout << std::endl;
-  //     }
-  //     else
-  //     {
-  //       std::cout << w[i][j][0] << std::endl;
-  //     }
-  //   }
-  // }
-
-
-  for (size_t i = 0; i < 2; ++i)
+  BackProp train;
+  net.SetActivationFunc(ActFunc);
+  if (!net.Load(CONF_FILE))
   {
-    back.DoItteration(input, expect);
+    net.SetLayersCount(4);
+    net.AddLayer(4800);
+    net.AddLayer(5400);
+    net.AddLayer(6400);
+    net.AddLayer(4800);
   }
 
-  std::cout << std::endl;
-  std::cout << std::endl;
-  
-  for (size_t i = 0; i < w_layout.size(); ++i) // Layer
+  train.SetNetwork(&net);
+  train.LogFile(LOG_FILE);
+  train.SetActivationFunction(ActFunc, DerFunc);
+  train.LearningSpeed(TRAIN_SPEED);
+  train.Momentum(MOMENTUM);
+
+  std::ifstream f(TRAIN_SET, std::ifstream::in);
+
+  if (f.is_open())
   {
-    for (size_t j = 0; j < w_layout[i]; ++j) // Neuron
+    std::string line = "";
+    Image input;
+    std::vector<double> inp;
+    std::vector<double> out;
+    std::vector<double> exp;
+    while (true)
     {
-      if (i > 0)
+      f >> line;
+      if (line == "") break;
+
+      input = OpenImage(line);
+      if (input.canva != nullptr)
       {
-        std::cout << "Neuron:" << std::endl;
-        for (size_t l = 0; l < w_layout[i - 1]; ++l) // Back
+        
+        for (int y = 0; y < input.height - 40; y += 40)
         {
-          std::cout << w[i][j][l] << " ";
+          for (int x = 0; x < input.width - 40; x += 40)
+          {
+            Image res = CutOfImage(input, x, y, 40, 40);
+            Image cut = CorruptImage(res, 80, StripCorruptionFunction());
+
+            inp.resize(cut.height * cut.width * cut.bpp);
+            std::copy(cut.canva, &cut.canva[inp.size()], inp.begin());
+            inp = DivVector(inp, 255.0);
+
+            exp.resize(res.height * res.width * res.bpp);
+            std::copy(res.canva, &res.canva[exp.size()], exp.begin());
+            exp = DivVector(exp, 255);
+
+            STOP_WATCH(start);
+            out = train.DoItteration(inp, exp);
+            STOP_WATCH(stop);
+            PRINT_DIFF_WATCH(start, stop);
+            double err = 0;
+            for (size_t i = 0; i < out.size(); ++i)
+            {
+              err += ((out[i] - exp[i]) * (out[i] - exp[i]));
+            }
+            err = sqrt(err);
+            std::cout << "X, Y :" << x << " " << y << std::endl;
+            std::cout << "Error: " << err << std::endl;
+
+            //SaveImage("test/res/res" + std::to_string(x) + ".jpg", cut);
+
+            FreeImage(cut);
+            FreeImage(res);
+          }
         }
-        std::cout << std::endl;
-      }
-      else
-      {
-        std::cout << w[i][j][0] << std::endl;
+        net.Save(CONF_FILE, COMMENTS);
       }
     }
+    net.Save(CONF_FILE, COMMENTS);
   }
-  //std::vector<double> result = net.Pass(input);
 
-  // if (temp != nullptr)
-  // {
-  //   std::cout << "Temp: " << t_layout.size() << std::endl;
-  //   for (size_t i = 0; i < t_layout.size(); ++i)
-  //   {
-  //     std::cout << "Temp layer: " << t_layout[i] << std::endl;
-  //     for (size_t j = 0; j < t_layout[i]; ++j)
-  //     {
-  //       std::cout << temp[i][j] << " ";
-  //     }
-  //     std::cout << std::endl;
-  //   }
-  // }
-
-  // std::cout << "Result:" << std::endl;
-  // for (size_t i = 0; i < result.size(); ++i)
-  // {
-  //   std::cout << result[i] << " ";
-  // }
-  // std::cout << std::endl;
-  //net.Save("test.txt");
   return 0;
 }

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iomanip>
+#include <cmath>
 
 MultiLayerPerceptron::MultiLayerPerceptron(/* args */)
 {
@@ -72,20 +73,42 @@ std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input)
   return result;
 }
 
-void MultiLayerPerceptron::AddLayer(size_t size)
+void MultiLayerPerceptron::SetLayersCount(size_t size)
 {
   if (size < 3) throw;
+  if (weights_layout.size() > 0) throw;
+
+  weights_layout.resize(size);
+  weights = new double**[weights_layout.size()];
+}
+
+void MultiLayerPerceptron::AddLayer(size_t size)
+{
+  if (size < 1) throw;
+  if (weights_layout.size() == 0) throw;
+
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
   size++;
   ValueTable layer = new double*[size];
-  
-  if (weights_layout.size() > 0)
+  size_t curr_layer = 0;
+  bool found = false;
+  for (size_t i = 0; i < weights_layout.size(); ++i)
   {
-    #pragma omp parallel for
+    if (weights_layout[i] == 0)
+    {
+      curr_layer = i;
+      found = true;
+      break;
+    }
+  }
+  if (!found) throw;
+  
+  if (curr_layer > 0)
+  {
     for (size_t i = 0; i < size; ++i)
     {
-      layer[i] = new double[weights_layout[weights_layout.size() - 1]];
-      for (size_t j = 0; j < weights_layout[weights_layout.size() - 1]; ++j)
+      layer[i] = new double[weights_layout[curr_layer - 1]];
+      for (size_t j = 0; j < weights_layout[curr_layer - 1]; ++j)
       {
         layer[i][j] = weight_init_func();
       } 
@@ -101,19 +124,8 @@ void MultiLayerPerceptron::AddLayer(size_t size)
     }
   }
 
-  weights_layout.push_back(size);
-  Weights tmp = new double**[weights_layout.size()];
-
-  #pragma omp parallel for
-  for (size_t i = 0; i < weights_layout.size() - 1; ++i)
-  {
-    tmp[i] = weights[i];
-  }
-  tmp[weights_layout.size() - 1] = layer;
-
-  if (weights != nullptr)
-    delete[] weights;
-  weights = tmp;
+  weights_layout[curr_layer] = size;
+  weights[curr_layer] = layer;
 }
 
 Weights MultiLayerPerceptron::GetWeights(std::vector<size_t> &layout)
@@ -123,7 +135,7 @@ Weights MultiLayerPerceptron::GetWeights(std::vector<size_t> &layout)
   return weights;
 }
 
-void MultiLayerPerceptron::Load(std::string file_path)
+bool MultiLayerPerceptron::Load(std::string file_path)
 {
   std::ifstream f(file_path, std::ifstream::in);
 
@@ -198,8 +210,9 @@ void MultiLayerPerceptron::Load(std::string file_path)
               if (layout.size() != layers) 
               {
                 std::cout << "Error: layout.size() != layers :" << layout.size() << ":" << layers << std::endl;
-                throw;
+                return false;
               }
+              SetLayersCount(layers);
               std::vector<size_t> layers_size(layers);
 
               #pragma omp parallel for
@@ -211,7 +224,7 @@ void MultiLayerPerceptron::Load(std::string file_path)
             }
             else
             {
-              throw;
+              return false;
             }
             line_in_section++;
           }
@@ -245,7 +258,7 @@ void MultiLayerPerceptron::Load(std::string file_path)
             }
             else
             {
-              throw;
+              return false;
             }
             line_in_section++;
           }
@@ -259,10 +272,12 @@ void MultiLayerPerceptron::Load(std::string file_path)
 
     }
     f.close();
+    return true;
   }
+  return false;
 }
 
-void MultiLayerPerceptron::Save(std::string file_path)
+void MultiLayerPerceptron::Save(std::string file_path, std::string comments)
 {
 /* Format
 Version:1.0
@@ -281,7 +296,7 @@ Data:
   {
     f << "Version:1.0" << std::endl;
     f << "Info:" << std::endl;
-    f << "Test" << std::endl;
+    f << comments << std::endl;
     f << "end" << std::endl;
     f << "Layout:" << std::endl;
     f << weights_layout.size() << std::endl;

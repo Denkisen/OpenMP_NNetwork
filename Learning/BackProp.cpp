@@ -28,6 +28,12 @@ void BackProp::LearningSpeed(double val)
   nu = val;
 }
 
+void BackProp::Momentum(double val)
+{
+  std::lock_guard<std::mutex> lock(network_mutex);
+  m = val;
+}
+
 void BackProp::LogFile(std::string file_path)
 {
   if (log.is_open()) log.close();
@@ -73,46 +79,40 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
   }
   std::vector<double> correction;
   std::vector<double> correction_priv;
+  momentum_correction.resize(w_layout.size());
   for (size_t i = w_layout.size() - 1; i > 0; --i)
   {
     correction.resize(w_layout[i]);
+    momentum_correction[i].resize(w_layout[i]);    
     #pragma omp parallel for
     for (size_t j = 0; j < w_layout[i] - 1; ++j)
     {    
       if (i == w_layout.size() - 1)
       {
-        #pragma omp parallel for
         for (size_t l = 0; l < w_layout[i - 1]; ++l)
         {
-          correction[j] = activation_func_deriv(expect[j] - v[i][j]);
-          w[i][j][l] += (correction[j] * nu * v[i - 1][l]);
+          correction[j] = ((1.0 - m) * activation_func_deriv(expect[j] - v[i][j]) * nu * v[i - 1][l]) + (m * momentum_correction[i][j]);
+          momentum_correction[i][j] = correction[j];
+          w[i][j][l] = (w[i][j][l] + correction[j]);
         }
       }
       else
       {
         double sum = 0;
-        #pragma omp parallel for reduction(+:sum)
         for (size_t l = 0; l < w_layout[i + 1] - 1; ++l)
         {
           sum += w[i + 1][l][j] * correction_priv[l];
         }
-        #pragma omp parallel for
         for (size_t l = 0; l < w_layout[i - 1]; ++l)
         {
-          correction[j] = activation_func_deriv(sum);
-          w[i][j][l] += (correction[j] * nu * v[i - 1][l]);
+          correction[j] = ((1.0 - m) * activation_func_deriv(sum) * nu * v[i - 1][l]) + (m * momentum_correction[i][j]);
+          momentum_correction[i][j] = correction[j];
+          w[i][j][l] = (w[i][j][l] + correction[j]);
         }
       }
     }
     correction_priv = correction;
   }
-
-  std::cout << "Result:" << std::endl;
-  for (size_t i = 0; i < result.size(); ++i)
-  {
-    std::cout << result[i] << " ";
-  }
-  std::cout << std::endl;
 
   if (v != nullptr)
   {

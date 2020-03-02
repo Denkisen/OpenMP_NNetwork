@@ -1,20 +1,36 @@
 APP_NAME = test.app
 BUILD_DIR = build
-CXX = '${OFFLOAD_GCC_PATH}/g++'
+BIN_DIR = bin
+CXX = g++
+SHADERSCOMPILER = glslangValidator
 
 CXXFLAGS = -std=c++17 -fopenmp -foffload=-lm -O0 -g -Wall -Warray-bounds -Wdiv-by-zero
 CXXFLAGS += -DDEBUG
-LDFLAGS = -lgomp
 
-VPATH = Networks Learning Functions DataProviders
-SOURCE = main.cpp $(wildcard Networks/*.cpp) $(wildcard Learning/*.cpp) $(wildcard Functions/*.cpp) $(wildcard DataProviders/*.cpp)
+LDFLAGS = -lgomp
+LDFLAGS += -lvulkan
+
+VPATH = Networks 
+VPATH += Learning 
+VPATH += Functions 
+VPATH += DataProviders
+VPATH += libs/Math
+VPATH += libs/Vulkan
+
+SOURCE = main.cpp
+SOURCE += $(wildcard Networks/*.cpp)
+SOURCE += $(wildcard Learning/*.cpp)
+SOURCE += $(wildcard Functions/*.cpp)
+SOURCE += $(wildcard DataProviders/*.cpp)
+SOURCE += $(wildcard libs/Math/*.cpp)
+SOURCE += $(wildcard libs/Vulkan/*.cpp)
 
 OBJECTS = $(notdir $(SOURCE:.cpp=.o))
 
-all: prepere $(APP_NAME)
+all: prepere $(BIN_DIR)/$(APP_NAME) shaders
 
-$(APP_NAME): $(addprefix $(BUILD_DIR)/,$(OBJECTS))
-	$(CXX) -o $(APP_NAME) $(addprefix $(BUILD_DIR)/,$(OBJECTS)) $(CXXFLAGS) $(LDFLAGS)
+$(BIN_DIR)/$(APP_NAME): $(addprefix $(BUILD_DIR)/,$(OBJECTS))
+	$(CXX) -o $(BIN_DIR)/$(APP_NAME) $(addprefix $(BUILD_DIR)/,$(OBJECTS)) $(CXXFLAGS) $(LDFLAGS)
 
 $(BUILD_DIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
@@ -23,16 +39,17 @@ $(BUILD_DIR)/%.o: %.cpp
 
 prepere:
 	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BIN_DIR)
 
 shaders:
-	
+	$(SHADERSCOMPILER) -V -o bin/comp.spv Shaders/test.comp
 
-run: all $(APP_NAME)
-	./$(APP_NAME)
+run: all $(BIN_DIR)/$(APP_NAME)
+	./$(BIN_DIR)/$(APP_NAME)
 
 clean:
-	rm -r $(BUILD_DIR)
-	rm -f $(APP_NAME)
+	rm -rf $(BUILD_DIR)
+	rm -rf $(BIN_DIR)
 
-dbg: all $(APP_NAME)
-	gdb ./$(APP_NAME)
+dbg: all $(BIN_DIR)/$(APP_NAME)
+	gdb ./$(BIN_DIR)/$(APP_NAME)

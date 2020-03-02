@@ -11,6 +11,8 @@ private:
   ActivationFunc *activation_func = [](double x){ return x; };
   ActivationFunc *activation_func_deriv = [](double x){ return x; };
   double nu = 0.01; // learning speed
+  double m = 0.01; // momentum
+  std::vector<std::vector<double>> momentum_correction;
   std::string log_file_path = "";
   std::ofstream log;
   void ToLog(std::string text);
@@ -19,6 +21,9 @@ public:
   void SetNetwork(INetwork *net);
   void LearningSpeed(double val);
   double LearningSpeed() { return nu; }
+  void Momentum(double val);
+  double Momentum() { return m; }
+  void CleanMomentumData() { momentum_correction.clear(); }
   void LogFile(std::string file_path);
   std::vector<double> DoItteration(std::vector<double> input, std::vector<double> expect);
   double DoBatch(std::vector<std::vector<double>> input, std::vector<std::vector<double>> expect);
