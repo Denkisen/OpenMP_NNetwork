@@ -107,3 +107,13 @@ void StripCorruptionFunction::Transform(Image data, double val)
     std::memset(&data.canva[(data.width * data.bpp * (i + y)) + (x * data.bpp)], 0, sizeof(unsigned char) * w);
   }
 }
+
+Image MakeEmptyImage(int x, int y, int bpp)
+{
+  Image result = {};
+  result.height = y;
+  result.width = x;
+  result.bpp = bpp;
+  result.canva = new unsigned char[x * y * bpp];
+  return result;
+}

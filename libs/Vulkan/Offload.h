@@ -25,10 +25,10 @@ namespace Vulkan
     VkCommandBuffer command_buffer = VK_NULL_HANDLE;
     VkQueue queue = VK_NULL_HANDLE;
     VkPhysicalDeviceLimits device_limits = {};
-    std::vector<Array<T>*> buffers;
+    std::vector<IStorage*> buffers;
   public:
     Offload() = delete;
-    Offload(Device &dev, std::vector<Array<T>*> &data, std::string shader_path);
+    Offload(Device &dev, std::vector<IStorage*> &data, std::string shader_path);
     ~Offload()
     {
 #ifdef DEBUG
@@ -45,7 +45,7 @@ namespace Vulkan
       }
       device = VK_NULL_HANDLE;
     }
-    void Run();
+    void Run(size_t x, size_t y, size_t z);
   };
 }
 

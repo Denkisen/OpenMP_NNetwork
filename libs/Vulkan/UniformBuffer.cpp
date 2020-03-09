@@ -1,20 +1,19 @@
-#include "Array.h"
+#include "UniformBuffer.h"
 #include <cstring>
 
 namespace Vulkan
 {
-  template class Array<int>;
-  template class Array<float>;
-  template class Array<double>;
-  template class Array<unsigned>;
+  void UniformBuffer::Create(Device &dev, void *data, size_t len)
+  {
+    Create(dev.device, dev.p_device, data, len, dev.family_queue);
+  }
 
-  template <typename T>
-  void Array<T>::Create(VkDevice dev, VkPhysicalDevice p_dev, T *data, size_t len, uint32_t f_queue)
+  void UniformBuffer::Create(VkDevice dev, VkPhysicalDevice p_dev, void *data, size_t len, uint32_t f_queue)
   {
     if (len == 0 || data == nullptr || p_dev == VK_NULL_HANDLE)
       throw std::runtime_error("Data array is empty.");
 
-    buffer_size = len * sizeof(T);
+    buffer_size = len;
     VkPhysicalDeviceMemoryProperties properties;
     vkGetPhysicalDeviceMemoryProperties(p_dev, &properties);
 
@@ -53,10 +52,10 @@ namespace Vulkan
 
     VkBufferCreateInfo buffer_create_info = {
       VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      0,
+      nullptr,
       0,
       buffer_size,
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VK_SHARING_MODE_EXCLUSIVE,
       1,
       &f_queue
@@ -68,7 +67,7 @@ namespace Vulkan
     VkMemoryRequirements mem_req = {};
     vkGetBufferMemoryRequirements(dev, buffer, &mem_req);
     if (buffer_size < mem_req.size)
-      throw std::runtime_error("Buffer is to small, minimum is " + std::to_string(mem_req.size / sizeof(T)));
+      throw std::runtime_error("Buffer is to small, minimum is " + std::to_string(mem_req.size));
 
     if (vkBindBufferMemory(dev, buffer, buffer_memory, 0) != VK_SUCCESS)
       throw std::runtime_error("Can't bind memory to buffer.");
@@ -76,32 +75,15 @@ namespace Vulkan
     device = dev;
     family_queue = f_queue;
     p_device = p_dev;
-    type = StorageType::Default; // VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    type = StorageType::Uniform; // VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
   }
 
-  template <typename T>
-  void Array<T>::Create(Device &dev, T *data, size_t len)
-  {
-    Create(dev.device, dev.p_device, data, len, dev.family_queue);
-  }
-
-  template <typename T>
-  Array<T>::Array(Device &dev, std::vector<T> &data)
-  {
-    if (data.size() == 0)
-      throw std::runtime_error("Data array is empty.");
-    
-    Create(dev, data.data(), data.size());
-  }
-
-  template <typename T>
-  Array<T>::Array(Device &dev, T *data, size_t len)
+  UniformBuffer::UniformBuffer(Device &dev, void *data, size_t len)
   {
     Create(dev, data, len);
   }
 
-  template <typename T> 
-  Array<T>::Array(const Array<T> &array)
+  UniformBuffer::UniformBuffer(const UniformBuffer &obj)
   {
     if (device != VK_NULL_HANDLE)
     {
@@ -110,12 +92,13 @@ namespace Vulkan
       device = VK_NULL_HANDLE;
     }
 
-    std::vector<T> data(array.Extract());
-    Create(array.device, array.p_device, data.data(), data.size(), array.family_queue);
+    char *tmp = new char[buffer_size];
+    Extract((void *) tmp);
+    Create(obj.device, obj.p_device, (void *) tmp, buffer_size, obj.family_queue);
+    delete tmp;
   }
 
-  template <typename T> 
-  Array<T>& Array<T>::operator= (const Array<T> &obj)
+  UniformBuffer& UniformBuffer::operator= (const UniformBuffer &obj)
   {
     if (device != VK_NULL_HANDLE)
     {
@@ -124,23 +107,21 @@ namespace Vulkan
       device = VK_NULL_HANDLE;
     }
     
-    std::vector<T> data(obj.Extract());
-    Create(obj.device, obj.p_device, data.data(), data.size(), obj.family_queue);
-
+    char *tmp = new char[buffer_size];
+    Extract((void *) tmp);
+    Create(obj.device, obj.p_device, (void *) tmp, buffer_size, obj.family_queue);
+    delete tmp;
+    
     return *this;
   }
-  
-  template <typename T> 
-  std::vector<T> Array<T>::Extract() const
+
+  void UniformBuffer::Extract(void *out) const
   {
     void *payload = nullptr;
     if (vkMapMemory(device, buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
     
-    std::vector<T> data(buffer_size / sizeof(T));
-    std::copy((T *)payload, &((T *)payload)[data.size()], data.begin());
+    std::memcpy(payload, out, buffer_size);
     vkUnmapMemory(device, buffer_memory);
-
-    return data;
   }
 }

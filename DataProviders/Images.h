@@ -30,5 +30,6 @@ Image ResizeImage(Image data, int w, int h);
 Image CutOfImage(Image data, int x, int y, int w, int h);
 Image GrayscaleImage(Image data);
 Image CorruptImage(Image data, int corruption_percentage, TransformFunction &&transform);
+Image MakeEmptyImage(int x, int y, int bpp);
 
 #endif

@@ -5,20 +5,33 @@ namespace Vulkan
   template class Offload<int>;
   template class Offload<float>;
   template class Offload<double>;
+  template class Offload<unsigned>;
 
   template <typename T>
-  Offload<T>::Offload(Device &dev, std::vector<Array<T>*> &data, std::string shader_path)
+  Offload<T>::Offload(Device &dev, std::vector<IStorage*> &data, std::string shader_path)
   {
     buffers = data;
     device = dev.device;
-    device_limits = dev.device_limits;
     queue = dev.queue;
+    device_limits = dev.device_limits;
+    size_t uniform_buffers = 0;
+    size_t storage_buffers = 0;
     std::vector<VkDescriptorSetLayoutBinding> descriptor_set_layout_bindings(buffers.size());
     for (size_t i = 0; i < buffers.size(); ++i)
     {
       VkDescriptorSetLayoutBinding descriptor_set_layout_binding = {};
       descriptor_set_layout_binding.binding = i;
-      descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      switch ((*buffers[i]).type)
+      {
+      case StorageType::Default :
+        descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        storage_buffers++;
+        break;
+      case StorageType::Uniform :
+        descriptor_set_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniform_buffers++;
+        break;
+      }
       descriptor_set_layout_binding.descriptorCount = 1;
       descriptor_set_layout_binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
       descriptor_set_layout_bindings[i] = descriptor_set_layout_binding;
@@ -32,15 +45,18 @@ namespace Vulkan
     if (vkCreateDescriptorSetLayout(dev.device, &descriptor_set_layout_create_info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
       throw std::runtime_error("Can't create DescriptorSetLayout.");
 
-    VkDescriptorPoolSize descriptor_pool_size = {};
-    descriptor_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    descriptor_pool_size.descriptorCount = (uint32_t) buffers.size();
+    std::vector<VkDescriptorPoolSize> pool_sizes(2);
+    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_sizes[0].descriptorCount = (uint32_t) uniform_buffers;
+
+    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    pool_sizes[1].descriptorCount = (uint32_t) storage_buffers;
 
     VkDescriptorPoolCreateInfo descriptor_pool_create_info = {};
     descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptor_pool_create_info.maxSets = 1;
-    descriptor_pool_create_info.poolSizeCount = 1;
-    descriptor_pool_create_info.pPoolSizes = &descriptor_pool_size;
+    descriptor_pool_create_info.poolSizeCount = pool_sizes.size();
+    descriptor_pool_create_info.pPoolSizes = pool_sizes.data();
 
     if (vkCreateDescriptorPool(dev.device, &descriptor_pool_create_info, nullptr, &descriptor_pool) != VK_SUCCESS)
       throw std::runtime_error("Can't creat DescriptorPool.");
@@ -70,9 +86,18 @@ namespace Vulkan
       write_descriptor.dstSet = descriptor_set;
       write_descriptor.dstBinding = i;
       write_descriptor.descriptorCount = 1;
-      write_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      write_descriptor.pBufferInfo = &descriptor_buffer_infos[i];
+      
+      switch ((*buffers[i]).type)
+      {
+      case StorageType::Default :
+        write_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        break;
+      case StorageType::Uniform :
+        write_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        break;
+      }
 
+      write_descriptor.pBufferInfo = &descriptor_buffer_infos[i];
       write_descriptor_set[i] = write_descriptor;
     }
 
@@ -120,7 +145,7 @@ namespace Vulkan
   }
 
   template <typename T>
-  void Offload<T>::Run()
+  void Offload<T>::Run(size_t x, size_t y, size_t z)
   {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -130,8 +155,7 @@ namespace Vulkan
 
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
-    //device_limits.maxComputeWorkGroupCount[0]
-    vkCmdDispatch(command_buffer, 64, 1, 1);
+    vkCmdDispatch(command_buffer, x, y, z);
 
     if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
       throw std::runtime_error("Can't end command buffer.");

@@ -31,6 +31,7 @@ namespace Vulkan
     void Create(Vulkan::Instance &instance, Vulkan::PhysicalDeviceType type);
     template <typename T> friend class Array;
     template <typename T> friend class Offload;
+    friend class UniformBuffer;
   public:
     Device() = default;
     Device(const Device &obj) = delete;
@@ -38,6 +39,7 @@ namespace Vulkan
     Device(Vulkan::Instance &instance, uint32_t device_index) { Create(instance, device_index); }
     Device(Vulkan::Instance &instance, Vulkan::PhysicalDeviceType type) { Create(instance, type); }
     static uint32_t AvaliableDevices(Vulkan::Instance &instance) { return Vulkan::Supply::GetPhisicalDevicesCount(instance.instance); }
+    VkPhysicalDeviceLimits GetLimits() { return device_limits; }
     ~Device();
   };
 }
