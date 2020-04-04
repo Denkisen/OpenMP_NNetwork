@@ -91,7 +91,8 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
       {
         for (size_t l = 0; l < w_layout[i - 1]; ++l)
         {
-          correction[j] = ((1.0 - m) * activation_func_deriv(expect[j] - v[i][j]) * nu * v[i - 1][l]) + (m * momentum_correction[i][j]);
+          correction[j] = nu * v[i - 1][l] * ((expect[j] - v[i][j]) * activation_func_deriv(v[i][j]));
+          correction[j] = ((1.0 - m) * correction[j]) + (m * momentum_correction[i][j]);
           momentum_correction[i][j] = correction[j];
           w[i][j][l] = (w[i][j][l] + correction[j]);
         }
@@ -105,7 +106,8 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
         }
         for (size_t l = 0; l < w_layout[i - 1]; ++l)
         {
-          correction[j] = ((1.0 - m) * activation_func_deriv(sum) * nu * v[i - 1][l]) + (m * momentum_correction[i][j]);
+          correction[j] = activation_func_deriv(v[i][l]) * sum * nu * v[i][l];
+          correction[j] = ((1.0 - m) * correction[j]) + (m * momentum_correction[i][j]);
           momentum_correction[i][j] = correction[j];
           w[i][j][l] = (w[i][j][l] + correction[j]);
         }
