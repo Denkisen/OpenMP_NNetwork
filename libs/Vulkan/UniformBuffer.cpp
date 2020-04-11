@@ -67,7 +67,7 @@ namespace Vulkan
     VkMemoryRequirements mem_req = {};
     vkGetBufferMemoryRequirements(dev, buffer, &mem_req);
     if (buffer_size < mem_req.size)
-      throw std::runtime_error("Buffer is to small, minimum is " + std::to_string(mem_req.size));
+      throw std::runtime_error("Buffer size is incorrect, required is " + std::to_string(mem_req.size));
 
     if (vkBindBufferMemory(dev, buffer, buffer_memory, 0) != VK_SUCCESS)
       throw std::runtime_error("Can't bind memory to buffer.");
@@ -121,7 +121,7 @@ namespace Vulkan
     if (vkMapMemory(device, buffer_memory, 0, VK_WHOLE_SIZE, 0, &payload) != VK_SUCCESS)
       throw std::runtime_error("Can't map memory.");
     
-    std::memcpy(payload, out, buffer_size);
+    std::memcpy(out, payload, buffer_size);
     vkUnmapMemory(device, buffer_memory);
   }
 }

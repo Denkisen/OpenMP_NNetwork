@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <iostream>
+#include <cstring>
 
 namespace Vulkan
 {
@@ -38,6 +39,19 @@ namespace Vulkan
           device = VK_NULL_HANDLE;
         }
       }
+      void Update(const void *data) const
+      {
+        if (data == nullptr)
+          throw std::runtime_error("Update data is empty.");
+        
+        void *payload = nullptr;
+        if (vkMapMemory(device, buffer_memory, 0, buffer_size, 0, &payload) != VK_SUCCESS)
+          throw std::runtime_error("Can't map memory.");
+    
+        std::memcpy(payload, data, buffer_size);
+        vkUnmapMemory(device, buffer_memory);
+      }
+      StorageType Type() const { return type; }
   };
 }
 

@@ -1,5 +1,8 @@
 #include "Offload.h"
 
+#include <unistd.h>
+#include <thread>
+
 namespace Vulkan
 {
   template class Offload<int>;
@@ -129,7 +132,7 @@ namespace Vulkan
 
     VkCommandPoolCreateInfo command_pool_create_info = {};
     command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    command_pool_create_info.flags = 0;
+    command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     command_pool_create_info.queueFamilyIndex = dev.family_queue;
 
     if (vkCreateCommandPool(dev.device, &command_pool_create_info, NULL, &command_pool) != VK_SUCCESS)
@@ -149,35 +152,60 @@ namespace Vulkan
   {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
     if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
       throw std::runtime_error("Can't begin command buffer.");
 
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
     vkCmdDispatch(command_buffer, x, y, z);
-
+    
     if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
       throw std::runtime_error("Can't end command buffer.");
 
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &command_buffer;
+    for (size_t i = 0; i < pipeline_options.DispatchTimes; ++i)
+    {
+      VkSubmitInfo submit_info = {};
+      submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      submit_info.commandBufferCount = 1;
+      submit_info.pCommandBuffers = &command_buffer;
 
-    VkFence fence;
-    VkFenceCreateInfo fence_create_info = {};
-    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_create_info.flags = 0;
-    if (vkCreateFence(device, &fence_create_info, nullptr, &fence) != VK_SUCCESS)
-      throw std::runtime_error("Can't create fence.");
+      VkFence fence;
+      VkFenceCreateInfo fence_create_info = {};
+      fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      fence_create_info.flags = 0;
 
-    if (vkQueueSubmit(queue, 1, &submit_info, fence) != VK_SUCCESS)
-      throw std::runtime_error("Can't submit queue.");
-
-    if (vkWaitForFences(device, 1, &fence, VK_TRUE, 100000000000) != VK_SUCCESS)
-      throw std::runtime_error("WaitForFences error");
-
-    vkDestroyFence(device, fence, nullptr);
+      if (vkCreateFence(device, &fence_create_info, nullptr, &fence) != VK_SUCCESS)
+        throw std::runtime_error("Can't create fence.");
+      if (vkQueueSubmit(queue, 1, &submit_info, fence) != VK_SUCCESS)
+        throw std::runtime_error("Can't submit queue.");
+      if (vkWaitForFences(device, 1, &fence, VK_TRUE, 100000000000) != VK_SUCCESS)
+        throw std::runtime_error("WaitForFences error");
+      
+      for (auto &opt : pipeline_options.update_uniform_buffer_opts)
+      {
+        opt.OnDispatchEndEvent(i, opt.index, *buffers[opt.index]);
+      }
+      
+      vkDestroyFence(device, fence, nullptr);
+    }
   }
+
+  template <typename T>
+  void Offload<T>::SetPipelineOptions(OffloadPipelineOptions options)
+  {
+    pipeline_options.DispatchTimes = options.DispatchTimes > 0 ? options.DispatchTimes : 1;
+    for (Vulkan::UpdateUniformBufferOpt opt : options.update_uniform_buffer_opts)
+    {
+      if (opt.OnDispatchEndEvent != nullptr)
+      {
+        if (opt.index < buffers.size() && (*buffers[opt.index]).type == StorageType::Uniform)
+        {
+          pipeline_options.update_uniform_buffer_opts.push_back(opt);
+        }
+      }
+    }
+  }
+
 }

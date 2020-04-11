@@ -8,9 +8,24 @@
 #include "Instance.h"
 #include "Device.h"
 #include "Array.h"
+#include "UniformBuffer.h"
 
 namespace Vulkan
 {
+  typedef void (*DispatchEndEvent)(const size_t iteration, const size_t index, Vulkan::IStorage &buff);
+
+  struct UpdateUniformBufferOpt
+  {
+    size_t index = 0;
+    Vulkan::DispatchEndEvent OnDispatchEndEvent = nullptr;
+  };
+
+  struct OffloadPipelineOptions
+  {
+    size_t DispatchTimes = 1;
+    std::vector<Vulkan::UpdateUniformBufferOpt> update_uniform_buffer_opts;
+  };
+  
   template <typename T> class Offload
   {
   private:
@@ -26,6 +41,8 @@ namespace Vulkan
     VkQueue queue = VK_NULL_HANDLE;
     VkPhysicalDeviceLimits device_limits = {};
     std::vector<IStorage*> buffers;
+    Vulkan::OffloadPipelineOptions pipeline_options = {};
+    bool stop = false; 
   public:
     Offload() = delete;
     Offload(Device &dev, std::vector<IStorage*> &data, std::string shader_path);
@@ -36,16 +53,18 @@ namespace Vulkan
 #endif
       if (device != VK_NULL_HANDLE)
       {
-        vkDestroyShaderModule(device, compute_shader, NULL);
+        stop = true;
+        vkDestroyShaderModule(device, compute_shader, nullptr);
         vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
         vkDestroyDescriptorSetLayout(device, descriptor_set_layout, nullptr);
-        vkDestroyPipelineLayout(device, pipeline_layout, NULL);
-        vkDestroyPipeline(device, pipeline, NULL);
-        vkDestroyCommandPool(device, command_pool, NULL);
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+        vkDestroyPipeline(device, pipeline, nullptr);
+        vkDestroyCommandPool(device, command_pool, nullptr);
       }
       device = VK_NULL_HANDLE;
     }
     void Run(size_t x, size_t y, size_t z);
+    void SetPipelineOptions(OffloadPipelineOptions options);
   };
 }
 
