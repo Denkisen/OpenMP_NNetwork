@@ -4,11 +4,11 @@ BIN_DIR = bin
 CXX = g++
 SHADERSCOMPILER = glslangValidator
 
-CXXFLAGS = -std=c++17 -fopenmp -foffload=-lm -O0 -g -Wall -Warray-bounds -Wdiv-by-zero
+CXXFLAGS = -std=c++17 -fopenmp -O0 -g -Wall -Warray-bounds -Wdiv-by-zero -fno-omit-frame-pointer
 CXXFLAGS += -DDEBUG
+CXXFLAGS += -fsanitize=address -fsanitize=undefined -fsanitize=bounds -fsanitize=bounds-strict
 
-LDFLAGS = -lgomp
-LDFLAGS += -lvulkan
+LDFLAGS = -lgomp -lvulkan
 
 VPATH = Networks 
 VPATH += Learning 
@@ -18,6 +18,9 @@ VPATH += libs/Math
 VPATH += libs/Vulkan
 
 SOURCE = main.cpp
+#SOURCE += vtests.cpp
+#SOURCE += cputest.cpp
+SOURCE += lstmtest.cpp
 SOURCE += $(wildcard Networks/*.cpp)
 SOURCE += $(wildcard Learning/*.cpp)
 SOURCE += $(wildcard Functions/*.cpp)

@@ -1,7 +1,7 @@
 #ifndef __CPU_NW_LEARNING_BACKPROP_H
 #define __CPU_NW_LEARNING_BACKPROP_H
 
-#include "../Networks/MultiLayerPerceptron.h"
+#include "../Networks/MLP.h"
 
 class BackProp
 {
@@ -16,6 +16,7 @@ private:
   std::string log_file_path = "";
   std::ofstream log;
   void ToLog(std::string text);
+  std::vector<double> MLPItteration(std::vector<double> input, std::vector<double> expect);
 public:
   BackProp();
   void SetNetwork(INetwork *net);
@@ -26,7 +27,7 @@ public:
   void CleanMomentumData() { momentum_correction.clear(); }
   void LogFile(std::string file_path);
   std::vector<double> DoItteration(std::vector<double> input, std::vector<double> expect);
-  double DoBatch(std::vector<std::vector<double>> input, std::vector<std::vector<double>> expect);
+  ValueTable DoBatch(ValueTable input, ValueTable expect);
   void SetActivationFunction(ActivationFunc func, ActivationFunc derivative);
   ~BackProp();
 };

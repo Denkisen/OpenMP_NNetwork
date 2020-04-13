@@ -2,18 +2,20 @@
 #define __CPU_NW_NETWORKS_MUlTILAYERPERCEPTRON_H
 
 #include "INetwork.h"
+
 #include <cstdlib>
 #include <ctime>
 
-class MultiLayerPerceptron : public INetwork
+class MLP : public INetwork
 {
 private:
+  const std::string version = "Version:1.1";
   bool bias = true;
   ActivationFunc *activation_func = [](double x) { return (x < 0 ? x * 0.01 : x); };
   WeightInitFunc *weight_init_func = []() { return ((double) std::rand() / RAND_MAX) - 0.5; };
 public:
-  MultiLayerPerceptron();
-  ~MultiLayerPerceptron();
+  MLP();
+  ~MLP();
 
   std::vector<double> Pass(std::vector<double> input);
   std::vector<double> Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout);

@@ -14,7 +14,7 @@ namespace Vulkan
 {
   typedef void (*DispatchEndEvent)(const size_t iteration, const size_t index, Vulkan::IStorage &buff);
 
-  struct UpdateUniformBufferOpt
+  struct UpdateBufferOpt
   {
     size_t index = 0;
     Vulkan::DispatchEndEvent OnDispatchEndEvent = nullptr;
@@ -23,7 +23,7 @@ namespace Vulkan
   struct OffloadPipelineOptions
   {
     size_t DispatchTimes = 1;
-    std::vector<Vulkan::UpdateUniformBufferOpt> update_uniform_buffer_opts;
+    std::vector<Vulkan::UpdateBufferOpt> DispatchEndEvents;
   };
   
   template <typename T> class Offload

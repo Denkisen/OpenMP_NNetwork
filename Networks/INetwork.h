@@ -11,11 +11,18 @@
 typedef double ActivationFunc(double);
 typedef double WeightInitFunc();
 typedef double *** Weights;
-typedef double ** ValueTable;
+typedef std::vector<std::vector<double>> ValueTable;
+
+enum class NetworkType
+{
+  MLP,
+  LSTM
+};
 
 class INetwork
 {
 protected:
+  NetworkType type;
   Weights weights = nullptr;
   std::vector<size_t> weights_layout;
   std::mutex pass_forward_mutex;
@@ -40,6 +47,7 @@ public:
   {
     Clean();
   }
+  NetworkType Type() { return type; }
   virtual std::vector<double> Pass(std::vector<double> input) = 0;
   virtual std::vector<double> Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout) = 0;
   virtual Weights GetWeights(std::vector<size_t> &layout) = 0;

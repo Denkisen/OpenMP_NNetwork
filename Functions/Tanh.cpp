@@ -2,8 +2,6 @@
 
 #include <math.h>
 
-
-
 double Tanh(double x, double a)
 {
   return tanh(x*a);

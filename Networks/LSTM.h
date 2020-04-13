@@ -3,10 +3,16 @@
 
 #include "INetwork.h"
 
-class LSTM
+#include <cstdlib>
+#include <ctime>
+
+class LSTM : public INetwork
 {
 private:
-    
+  const std::string version = "LSTM:1.0";
+  std::vector<double> mem_cell;
+  std::vector<double> last_output;
+  WeightInitFunc *weight_init_func = []() { return ((double) std::rand() / RAND_MAX) - 0.5; };
 public:
   LSTM();
   ~LSTM();
@@ -15,6 +21,7 @@ public:
   Weights GetWeights(std::vector<size_t> &layout);
   bool Load(std::string file_path);
   void Save(std::string file_path, std::string comments);
+  void SetLayout(size_t size);
 };
 
 #endif

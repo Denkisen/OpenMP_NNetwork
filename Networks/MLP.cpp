@@ -1,20 +1,21 @@
-#include "MultiLayerPerceptron.h"
+#include "MLP.h"
 #include <algorithm>
 #include <cstring>
 #include <iomanip>
 #include <cmath>
 
-MultiLayerPerceptron::MultiLayerPerceptron(/* args */)
+MLP::MLP(/* args */)
 {
   std::srand(unsigned(std::time(0)));
+  type = NetworkType::MLP;
 }
 
-MultiLayerPerceptron::~MultiLayerPerceptron()
+MLP::~MLP()
 {
 
 }
 
-std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout)
+std::vector<double> MLP::Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout)
 {
   std::vector<double> result;
   if (weights_layout.size() < 3) throw;
@@ -22,58 +23,51 @@ std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input, ValueT
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
 
   size_t t_val_size = weights_layout.size();
-  size_t t_weights_layout[t_val_size];
-  ValueTable t_val = new double*[t_val_size];
+  layout.resize(t_val_size);
+  temporary_layers_values.resize(t_val_size);
 
-  #pragma omp parallel for
+  #pragma omp parallel for if (t_val_size > 100)
   for (size_t i = 0; i < t_val_size; ++i)
   {
-    t_weights_layout[i] = weights_layout[i];
-    t_val[i] = new double[weights_layout[i]];
+    layout[i] = weights_layout[i];
+    temporary_layers_values[i].resize(weights_layout[i]);
   }
 
   input.resize(weights_layout[0]);
-  std::copy(input.begin(), input.end(), t_val[0]);
+  temporary_layers_values[0] = input;
 
   for (size_t i = 1; i < t_val_size; ++i)
   {
     #pragma omp parallel for
-    for (size_t j = 0; j < t_weights_layout[i] - 1; ++j)
+    for (size_t j = 0; j < layout[i] - 1; ++j)
     {  
       
       double sum = 0.0; 
-      t_val[i - 1][t_weights_layout[i - 1] - 1] = bias ? 1 : 0;
-      for (size_t l = 0; l < t_weights_layout[i - 1]; ++l)
+      temporary_layers_values[i - 1][layout[i - 1] - 1] = bias ? 1 : 0;
+      for (size_t l = 0; l < layout[i - 1]; ++l)
       {
-        sum += t_val[i - 1][l] * weights[i][j][l];
+        sum += temporary_layers_values[i - 1][l] * weights[i][j][l];
       }
 
-      t_val[i][j] = activation_func(sum);
+      temporary_layers_values[i][j] = activation_func(sum);
     }
   }    
-
-  temporary_layers_values = t_val;
-  layout.resize(t_val_size);
-  std::copy(t_weights_layout, &t_weights_layout[t_val_size], layout.begin());
-  result.resize(t_weights_layout[t_val_size - 1] - 1);
-  std::copy(t_val[t_val_size - 1], &t_val[t_val_size - 1][result.size()],result.begin());
+  result = temporary_layers_values[t_val_size - 1];
+  result.resize(result.size() - 1);
 
   return result;
 }
 
-std::vector<double> MultiLayerPerceptron::Pass(std::vector<double> input)
+std::vector<double> MLP::Pass(std::vector<double> input)
 {
   ValueTable temp;
   std::vector<size_t> layout;
   std::vector result = Pass(input, temp, layout);
-  for (size_t i = 0; i < layout.size(); ++i)
-    delete[] temp[i];
-  delete[] temp;
 
   return result;
 }
 
-void MultiLayerPerceptron::SetLayersCount(size_t size)
+void MLP::SetLayersCount(size_t size)
 {
   if (size < 3) throw;
   if (weights_layout.size() > 0) throw;
@@ -82,14 +76,14 @@ void MultiLayerPerceptron::SetLayersCount(size_t size)
   weights = new double**[weights_layout.size()];
 }
 
-void MultiLayerPerceptron::AddLayer(size_t size)
+void MLP::AddLayer(size_t size)
 {
   if (size < 1) throw;
   if (weights_layout.size() == 0) throw;
 
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
   size++;
-  ValueTable layer = new double*[size];
+  double ** layer = new double *[size];
   size_t curr_layer = 0;
   bool found = false;
   for (size_t i = 0; i < weights_layout.size(); ++i)
@@ -128,14 +122,13 @@ void MultiLayerPerceptron::AddLayer(size_t size)
   weights[curr_layer] = layer;
 }
 
-Weights MultiLayerPerceptron::GetWeights(std::vector<size_t> &layout)
+Weights MLP::GetWeights(std::vector<size_t> &layout)
 {
-  
   layout = weights_layout;
   return weights;
 }
 
-bool MultiLayerPerceptron::Load(std::string file_path)
+bool MLP::Load(std::string file_path)
 {
   std::ifstream f(file_path, std::ifstream::in);
 
@@ -157,10 +150,12 @@ bool MultiLayerPerceptron::Load(std::string file_path)
   if (f.is_open())
   {
     Clean();
+
+    std::vector<std::string> sections = {"Info:", "Layout:", "Data:"};
     std::string line;
 
     f >> line;
-    if (line == "Version:1.0")
+    if (line == version)
     {
       std::string section = "";
       size_t line_in_section = 0;
@@ -174,24 +169,13 @@ bool MultiLayerPerceptron::Load(std::string file_path)
 
         if (line != "end")
         {
-          if (line == "Info:")  
-          { 
-            section = "Info";
+          if (auto index = std::find(sections.begin(), sections.end(), line); index != sections.end())
+          {
+            section = *index;
+            section.pop_back();
             line_in_section = 0;
             continue;
           }
-          if (line == "Layout:")
-          {
-            section = "Layout";
-            line_in_section = 0;
-            continue;
-          } 
-          if (line == "Data:")
-          {
-            section = "Data";
-            line_in_section = 0;
-            continue;
-          } 
 
           if (section == "Info")
           {
@@ -222,10 +206,9 @@ bool MultiLayerPerceptron::Load(std::string file_path)
               for (size_t i = 0; i < layers; ++i)
                 AddLayer(layers_size[i] - 1);
             }
-            else
-            {
-              return false;
-            }
+            else if (line_in_section == 2) bias = (bool) std::stoi(line);
+            else return false;
+
             line_in_section++;
           }
           if (section == "Data")
@@ -237,29 +220,20 @@ bool MultiLayerPerceptron::Load(std::string file_path)
                 auto values = Split(line, ",");
                 #pragma omp parallel for
                 for (size_t l = 0; l < weights_layout[i - 1]; ++l)
-                {
                   weights[i][j][l] = std::stod(values[l]);
-                }
               }
-              else
-              {
-                weights[i][j][0] = std::stod(line);
-              }
+              else weights[i][j][0] = std::stod(line);
 
               if (j == weights_layout[i] - 1)
               {
                 i++;
                 j = 0;
               }
-              else
-              {
-                j++;
-              }
+              else j++;
+
             }
-            else
-            {
-              return false;
-            }
+            else return false;
+
             line_in_section++;
           }
         }
@@ -269,7 +243,6 @@ bool MultiLayerPerceptron::Load(std::string file_path)
           section = "";
         }
       } while (!f.eof());
-
     }
     f.close();
     return true;
@@ -277,7 +250,7 @@ bool MultiLayerPerceptron::Load(std::string file_path)
   return false;
 }
 
-void MultiLayerPerceptron::Save(std::string file_path, std::string comments)
+void MLP::Save(std::string file_path, std::string comments)
 {
 /* Format
 Version:1.0
@@ -287,6 +260,7 @@ end
 Layout:
 3 // layers
 5 10 6 // neurons
+1 // bias
 end
 Data:
 */
@@ -294,7 +268,7 @@ Data:
   std::ofstream f(file_path, std::ios::trunc);
   if (f.is_open())
   {
-    f << "Version:1.0" << std::endl;
+    f << version << std::endl;
     f << "Info:" << std::endl;
     f << comments << std::endl;
     f << "end" << std::endl;
@@ -305,6 +279,7 @@ Data:
       f << weights_layout[i];
       if (i < weights_layout.size() - 1) f << ",";
     }
+    f << std::endl << (int) bias;
     f << std::endl << "end" << std::endl;
     f << "Data:" << std::endl;
     for (size_t i = 0; i < weights_layout.size(); ++i)
@@ -319,10 +294,8 @@ Data:
             if (l < weights_layout[i - 1] - 1) f << ",";
           }
         }
-        else
-        {
-          f << std::fixed << std::setprecision(5) << weights[i][j][0];
-        }
+        else f << std::fixed << std::setprecision(5) << weights[i][j][0];
+
         f << std::endl;
       }
     }
@@ -331,24 +304,24 @@ Data:
   }
 }
 
-bool MultiLayerPerceptron::Bias()
+bool MLP::Bias()
 {
   return bias;
 }
 
-void MultiLayerPerceptron::Bias(bool state)
+void MLP::Bias(bool state)
 {
   bias = state;
 }
 
-void MultiLayerPerceptron::SetActivationFunc(ActivationFunc func)
+void MLP::SetActivationFunc(ActivationFunc func)
 {
   if (func == nullptr) throw;
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
   activation_func = func;
 }
 
-void MultiLayerPerceptron::SetWeightInitFunc(WeightInitFunc func)
+void MLP::SetWeightInitFunc(WeightInitFunc func)
 {
   if (func == nullptr) throw;
   weight_init_func = func;

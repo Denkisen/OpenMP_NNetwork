@@ -183,7 +183,7 @@ namespace Vulkan
       if (vkWaitForFences(device, 1, &fence, VK_TRUE, 100000000000) != VK_SUCCESS)
         throw std::runtime_error("WaitForFences error");
       
-      for (auto &opt : pipeline_options.update_uniform_buffer_opts)
+      for (auto &opt : pipeline_options.DispatchEndEvents)
       {
         opt.OnDispatchEndEvent(i, opt.index, *buffers[opt.index]);
       }
@@ -196,13 +196,13 @@ namespace Vulkan
   void Offload<T>::SetPipelineOptions(OffloadPipelineOptions options)
   {
     pipeline_options.DispatchTimes = options.DispatchTimes > 0 ? options.DispatchTimes : 1;
-    for (Vulkan::UpdateUniformBufferOpt opt : options.update_uniform_buffer_opts)
+    for (Vulkan::UpdateBufferOpt opt : options.DispatchEndEvents)
     {
       if (opt.OnDispatchEndEvent != nullptr)
       {
-        if (opt.index < buffers.size() && (*buffers[opt.index]).type == StorageType::Uniform)
+        if (opt.index < buffers.size())
         {
-          pipeline_options.update_uniform_buffer_opts.push_back(opt);
+          pipeline_options.DispatchEndEvents.push_back(opt);
         }
       }
     }

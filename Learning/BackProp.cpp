@@ -48,18 +48,39 @@ void BackProp::ToLog(std::string text)
 
 std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vector<double> expect)
 {
+  std::vector<double> result;
+  switch (network->Type())
+  {
+  case NetworkType::MLP:
+    result = MLPItteration(input, expect);
+    break;
+  default:
+    break;
+  }
+  return result;
+}
+
+ValueTable BackProp::DoBatch(ValueTable input, ValueTable expect)
+{
+  ValueTable result(input.size());
+
+  return result;
+}
+
+std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vector<double> expect)
+{
   std::lock_guard<std::mutex> lock(network_mutex);
   std::vector<double> result;
+  Weights w = nullptr;
+  ValueTable v;
+  std::vector<size_t> t_layout;
+  std::vector<size_t> w_layout;  
+
   if (input.size() == 0 || expect.size() == 0)
   {
     ToLog(std::string(__func__) + "() Error: input.size() == 0 || expect.size() == 0");
     return result;
   }
-
-  Weights w = nullptr;
-  ValueTable v = nullptr;
-  std::vector<size_t> t_layout;
-  std::vector<size_t> w_layout;
 
   if (network == nullptr)
   {
@@ -83,7 +104,8 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
   for (size_t i = w_layout.size() - 1; i > 0; --i)
   {
     correction.resize(w_layout[i]);
-    momentum_correction[i].resize(w_layout[i]);    
+    momentum_correction[i].resize(w_layout[i]);
+
     #pragma omp parallel for
     for (size_t j = 0; j < w_layout[i] - 1; ++j)
     {    
@@ -116,17 +138,5 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
     correction_priv = correction;
   }
 
-  if (v != nullptr)
-  {
-    for (size_t i = 0; i < t_layout.size(); ++i)
-      delete[] v[i];
-    delete[] v;
-  }
-
   return result;
-}
-
-double BackProp::DoBatch(std::vector<std::vector<double>> input, std::vector<std::vector<double>> expect)
-{
-  return 0;
 }

@@ -1,7 +1,5 @@
 #include "activation_functions.h"
 
-
-
 double ReLu(double x)
 {
   return x <= 0 ? 0 : x;
