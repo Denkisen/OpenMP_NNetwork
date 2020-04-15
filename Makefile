@@ -38,7 +38,10 @@ $(BIN_DIR)/$(APP_NAME): $(addprefix $(BUILD_DIR)/,$(OBJECTS))
 $(BUILD_DIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-.PHONY: prepere run clean dbg shaders
+.PHONY: prepere run clean dbg shaders multi
+
+multi:
+	$(MAKE) -j12 all
 
 prepere:
 	mkdir -p $(BUILD_DIR)

@@ -1,5 +1,6 @@
 #include "Units.h"
 #include "Networks/LSTM.h"
+#include "libs/SpeedTest.h"
 
 #include <iostream>
 #include <vector>
@@ -10,14 +11,15 @@
 int lstmtest_main()
 {
   LSTM net;
-  //net.SetLayout(5);
-  net.Load(CONF_FILE);
-  return 0;
-  std::vector<double> inp = { 1, 1, 1, 1, 1};
+  //net.Load(CONF_FILE);
+  net.SetLayout(10, 6);
+  std::vector<double> inp(10, 1.0);
   ValueTable tab;
   std::vector<size_t> layout;
-
+  STOP_WATCH(start);
   std::vector<double> out = net.Pass(inp, tab, layout);
+  STOP_WATCH(stop);
+  PRINT_DIFF_WATCH(start, stop);
   
   for (auto o : out)
     std::cout << o << " ";

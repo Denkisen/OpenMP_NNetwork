@@ -1,5 +1,4 @@
 #include "LSTM.h"
-#include "../Functions/activation_functions.h"
 
 #include <algorithm>
 #include <cstring>
@@ -17,24 +16,29 @@ LSTM::~LSTM()
 
 }
 
-void LSTM::SetLayout(size_t size)
+void LSTM::SetLayout(size_t input_size, size_t output_size)
 {
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
+  if (input_size == 0 || output_size == 0)
+    std::runtime_error("Incorect layout size.");
+
   Clean();
-  mem_cell = std::vector<double>(size, 0.0);
-  last_output = std::vector<double>(size, 0.0);
-  // w[3][4][size] - w[W,F,b][f,i,o,c][size]
-  weights_layout.resize(3);
+  mem_cell = std::vector<double>(output_size, 0.0);
+  last_output = std::vector<double>(output_size, 0.0);
+  this->input_size = input_size;
+  weights_layout.resize(4);
   weights = new double**[weights_layout.size()];
-  for (size_t j = 0; j < weights_layout.size(); ++j)
+  for (size_t i = 0; i < weights_layout.size(); ++i)
   {
-    weights_layout[j] = 4;
-    weights[j] = new double*[weights_layout[j]];
-    for (size_t i = 0; i < weights_layout[j]; ++i)
+    weights_layout[i] = output_size;
+    weights[i] = new double*[weights_layout[i]];
+    for (size_t j = 0; j < weights_layout[i]; ++j)
     {
-      weights[j][i] = new double[size];
-      for (size_t z = 0; z < size; z++)
-        weights[j][i][z] = weight_init_func();
+      weights[i][j] = new double[input_size + output_size + 1];
+      for (size_t z = 0; z < input_size + output_size + 1; ++z)
+      {
+        weights[i][j][z] = weight_init_func();
+      }
     }
   }
 }
@@ -50,31 +54,50 @@ std::vector<double> LSTM::Pass(std::vector<double> input)
 
 std::vector<double> LSTM::Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout)
 {
-  std::vector<double> result(input.size());
+  std::vector<double> result(last_output.size());
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
+  if (input.size() != input_size)
+    std::runtime_error("Incorect input");
 
-  if (input.size() != mem_cell.size())
-    throw std::runtime_error(std::string(__func__) + "Incorrect size.");
+  temporary_layers_values.resize(weights_layout.size());
+  std::vector<double> com_input = input;
+  com_input.insert(com_input.end(), last_output.begin(), last_output.end());
+  layout = weights_layout;
 
-  layout.resize(weights_layout.size());
-  temporary_layers_values.resize(4);
-
-  for (size_t i = 0; i < mem_cell.size(); ++i)
+  for (size_t i = 0; i < weights_layout.size(); ++i)
   {
-    for (size_t j = 0; j < temporary_layers_values.size(); ++j)
+    temporary_layers_values[i].resize(weights_layout[i]);
+    #pragma omp parallel for
+    for (size_t j = 0; j < weights_layout[i]; ++j)
     {
-      temporary_layers_values[j].resize(mem_cell.size());
-      if (j < temporary_layers_values.size() - 1)
+      double sum = 0.0;
+      for (size_t z = 0; z < com_input.size(); ++z)
       {
-        temporary_layers_values[j][i] = Sigmoid((input[i] * weights[0][j][i]) + (last_output[i] * weights[1][j][i]) + weights[2][j][i], 1.0);
+        sum += (weights[i][j][z] * com_input[z]);
       }
-      else
+      sum += weights[i][j][com_input.size()];
+      switch (i)
       {
-        temporary_layers_values[j][i] = std::tanh((input[i] * weights[0][j][i]) + (last_output[i] * weights[1][j][i]) + weights[2][j][i]);
+        case FORGET_INDEX:
+          temporary_layers_values[i][j] = activation_func(sum);
+          mem_cell[j] *= temporary_layers_values[FORGET_INDEX][j];
+          break;
+        case INPUT_INDEX:
+          temporary_layers_values[INPUT_INDEX][j] = activation_func(sum);
+          break;
+        case CELL_INDEX:
+          temporary_layers_values[CELL_INDEX][j] = std::tanh(sum);
+          mem_cell[j] += (temporary_layers_values[CELL_INDEX][j] * temporary_layers_values[INPUT_INDEX][j]);
+          break;
+        case OUTPUT_INDEX:
+          temporary_layers_values[OUTPUT_INDEX][j] = activation_func(sum);
+          last_output[j] = temporary_layers_values[OUTPUT_INDEX][j] * std::tanh(mem_cell[j]);
+          result[j] = last_output[j];
+          break;
+        default: 
+          break;
       }
     }
-    mem_cell[i] = (temporary_layers_values[0][i] * mem_cell[i]) + (temporary_layers_values[1][i] * temporary_layers_values[3][i]);
-    result[i] = temporary_layers_values[2][i] * std::tanh(mem_cell[i]);
   }
 
   return result;
@@ -139,7 +162,16 @@ bool LSTM::Load(std::string file_path)
         }
         if (section == "Layout")
         {
-          if (size_t size = std::stoul(line); size > 0) SetLayout(size); else return false;
+          auto spt = Split(line, ",");
+          if (spt.size() != 2) return false;
+
+          input_size = std::stoul(spt[0]);
+          size_t mem_size = std::stoul(spt[1]);
+
+          if (input_size > 0 && mem_size > 0) 
+            SetLayout(input_size, mem_size); 
+          else 
+            return false;
 
           line_in_section++;
         }
@@ -147,7 +179,7 @@ bool LSTM::Load(std::string file_path)
         {
           auto spt = Split(line, ",");
           #pragma omp parallel for
-          for (size_t l = 0; l < mem_cell.size(); ++l)
+          for (size_t l = 0; l < mem_cell.size() + input_size + 1; ++l)
             weights[i][j][l] = std::stod(spt[l]);
           j++;
 
@@ -185,17 +217,17 @@ void LSTM::Save(std::string file_path, std::string comments)
   f << comments << std::endl;
   f << "end" << std::endl;
   f << "Layout:" << std::endl;
-  f << mem_cell.size() << std::endl;
+  f << input_size << "," << mem_cell.size() << std::endl;
   f << "end" << std::endl;
   f << "Data:" << std::endl;
   for (size_t i = 0; i < weights_layout.size(); ++i)
   {
     for (size_t j = 0; j < weights_layout[i]; ++j)
     {
-      for (size_t l = 0; l < mem_cell.size(); ++l)
+      for (size_t l = 0; l < input_size + mem_cell.size() + 1; ++l)
       {
         f << std::fixed << std::setprecision(5) << weights[i][j][l];
-        if (l < mem_cell.size() - 1) f << ",";
+        if (l < input_size + mem_cell.size()) f << ",";
       }
       f << std::endl;
     }
