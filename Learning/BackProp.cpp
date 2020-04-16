@@ -60,13 +60,6 @@ std::vector<double> BackProp::DoItteration(std::vector<double> input, std::vecto
   return result;
 }
 
-ValueTable BackProp::DoBatch(ValueTable input, ValueTable expect)
-{
-  ValueTable result(input.size());
-
-  return result;
-}
-
 std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vector<double> expect)
 {
   std::lock_guard<std::mutex> lock(network_mutex);
@@ -103,7 +96,8 @@ std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vect
   momentum_correction.resize(w_layout.size());
   for (size_t i = w_layout.size() - 1; i > 0; --i)
   {
-    correction.resize(w_layout[i]);
+    correction.resize(w_layout[i] - 1);
+    correction[correction.size() - 1] = 0;
     momentum_correction[i].resize(w_layout[i]);
 
     #pragma omp parallel for
@@ -111,12 +105,11 @@ std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vect
     {    
       if (i == w_layout.size() - 1)
       {
+        correction[j] = ((expect[j] - v[i][j]) * activation_func_deriv(v[i][j]));
+        momentum_correction[i][j] = correction[j];
         for (size_t l = 0; l < w_layout[i - 1]; ++l)
         {
-          correction[j] = nu * v[i - 1][l] * ((expect[j] - v[i][j]) * activation_func_deriv(v[i][j]));
-          correction[j] = ((1.0 - m) * correction[j]) + (m * momentum_correction[i][j]);
-          momentum_correction[i][j] = correction[j];
-          w[i][j][l] = (w[i][j][l] + correction[j]);
+          w[i][j][l] += (((1.0 - m) * (correction[j] * nu * v[i - 1][l])) + (m * momentum_correction[i][j]));
         }
       }
       else
@@ -126,12 +119,11 @@ std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vect
         {
           sum += w[i + 1][l][j] * correction_priv[l];
         }
+        correction[j] = activation_func_deriv(v[i][j]) * sum;
+        momentum_correction[i][j] = correction[j];
         for (size_t l = 0; l < w_layout[i - 1]; ++l)
         {
-          correction[j] = activation_func_deriv(v[i][l]) * sum * nu * v[i][l];
-          correction[j] = ((1.0 - m) * correction[j]) + (m * momentum_correction[i][j]);
-          momentum_correction[i][j] = correction[j];
-          w[i][j][l] = (w[i][j][l] + correction[j]);
+          w[i][j][l] += (((1.0 - m) * (correction[j] * nu * v[i - 1][l])) + (m * momentum_correction[i][j]));
         }
       }
     }

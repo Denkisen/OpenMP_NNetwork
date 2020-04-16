@@ -27,7 +27,6 @@ public:
   void CleanMomentumData() { momentum_correction.clear(); }
   void LogFile(std::string file_path);
   std::vector<double> DoItteration(std::vector<double> input, std::vector<double> expect);
-  ValueTable DoBatch(ValueTable input, ValueTable expect);
   void SetActivationFunction(ActivationFunc func, ActivationFunc derivative);
   ~BackProp();
 };

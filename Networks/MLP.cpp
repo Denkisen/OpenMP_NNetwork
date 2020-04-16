@@ -23,13 +23,12 @@ std::vector<double> MLP::Pass(std::vector<double> input, ValueTable &temporary_l
   std::lock_guard<std::mutex> lock(pass_forward_mutex);
 
   size_t t_val_size = weights_layout.size();
-  layout.resize(t_val_size);
+  layout = weights_layout;
   temporary_layers_values.resize(t_val_size);
 
   #pragma omp parallel for if (t_val_size > 100)
   for (size_t i = 0; i < t_val_size; ++i)
   {
-    layout[i] = weights_layout[i];
     temporary_layers_values[i].resize(weights_layout[i]);
   }
 
@@ -101,11 +100,19 @@ void MLP::AddLayer(size_t size)
   {
     for (size_t i = 0; i < size; ++i)
     {
-      layer[i] = new double[weights_layout[curr_layer - 1]];
-      for (size_t j = 0; j < weights_layout[curr_layer - 1]; ++j)
+      if (i < size - 1)
       {
-        layer[i][j] = weight_init_func();
-      } 
+        layer[i] = new double[weights_layout[curr_layer - 1]];
+        for (size_t j = 0; j < weights_layout[curr_layer - 1]; ++j)
+        {
+          layer[i][j] = weight_init_func();
+        } 
+      }
+      else
+      {
+        layer[i] = nullptr;
+        //layer[i][0] = weight_init_func();
+      }
     }
   }
   else
@@ -224,7 +231,7 @@ bool MLP::Load(std::string file_path)
               }
               else weights[i][j][0] = std::stod(line);
 
-              if (j == weights_layout[i] - 1)
+              if (j == weights_layout[i] - 2)
               {
                 i++;
                 j = 0;
@@ -284,7 +291,7 @@ Data:
     f << "Data:" << std::endl;
     for (size_t i = 0; i < weights_layout.size(); ++i)
     {
-      for (size_t j = 0; j < weights_layout[i]; ++j)
+      for (size_t j = 0; j < weights_layout[i] - 1; ++j)
       {
         if (i > 0)
         {
@@ -294,7 +301,8 @@ Data:
             if (l < weights_layout[i - 1] - 1) f << ",";
           }
         }
-        else f << std::fixed << std::setprecision(5) << weights[i][j][0];
+        else 
+          f << std::fixed << std::setprecision(5) << weights[i][j][0];
 
         f << std::endl;
       }

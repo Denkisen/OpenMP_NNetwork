@@ -29,7 +29,6 @@ public:
   void Bias(bool state);
   void SetActivationFunc(ActivationFunc func);
   void SetWeightInitFunc(WeightInitFunc func);
-  
 };
 
 
