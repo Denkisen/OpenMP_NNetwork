@@ -21,6 +21,7 @@ SOURCE = main.cpp
 #SOURCE += vtests.cpp
 #SOURCE += cputest.cpp
 SOURCE += lstmtest.cpp
+#SOURCE += mada.cpp
 SOURCE += $(wildcard Networks/*.cpp)
 SOURCE += $(wildcard Learning/*.cpp)
 SOURCE += $(wildcard Functions/*.cpp)

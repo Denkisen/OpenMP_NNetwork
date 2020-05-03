@@ -25,6 +25,7 @@ protected:
   NetworkType type;
   Weights weights = nullptr;
   std::vector<size_t> weights_layout;
+  std::vector<double> mem_cell;
   std::mutex pass_forward_mutex;
   void Clean()
   {
@@ -48,6 +49,7 @@ public:
     Clean();
   }
   NetworkType Type() { return type; }
+  std::vector<double> GetMemory() { return mem_cell; }
   virtual std::vector<double> Pass(std::vector<double> input) = 0;
   virtual std::vector<double> Pass(std::vector<double> input, ValueTable &temporary_layers_values, std::vector<size_t> &layout) = 0;
   virtual Weights GetWeights(std::vector<size_t> &layout) = 0;

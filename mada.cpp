@@ -20,14 +20,14 @@
 
 double ActFunc(double x)
 {
-  //return Tanh(x, 1);
-  return Leaky_ReLu(x, 1.0);
+  return Tanh(x, 1.0);
+  //return Leaky_ReLu(x, 1.0);
 }
 
 double DerFunc(double x)
 {
-  //return Derivative_Tanh(x, 1);
-  return Derivative_Leaky_ReLu(x, 1.0);
+  return Derivative_Tanh(x, 1.0);
+  //return Derivative_Leaky_ReLu(x, 1.0);
 }
 
 std::vector<std::string> split(const std::string& str, const std::string& delim)
@@ -48,7 +48,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int mada_main()
 {
- MLP net;
+  MLP net;
   BackProp train;
   net.SetActivationFunc(ActFunc);
   if (!net.Load(CONF_FILE))
@@ -70,39 +70,48 @@ int mada_main()
   max_min.push_back({0.5, 1.8, 15.0, 2.0, 0.017, 482.3, 1219.4, 268.4, 45.0, 150.0});
   std::vector<std::pair<double, std::vector<double>>> data;
   std::vector<double> output(1);
-while (true)
-{
-  std::ifstream inp(TRAIN_SET);
-  if (!inp.fail())
+  while (true)
   {
-    std::string line = "";
-    while ((inp >> line) && !inp.eof())
+    std::ifstream inp(TRAIN_SET);
+    if (!inp.fail())
     {
-      std::vector<std::string> spt = split(line, ";");
-      std::vector<double> add(spt.size() - 1);
-      std::transform(spt.begin(), spt.end() - 1, add.begin(), [](auto x){ return std::stod(x); });
-      #pragma omp parallel for
-      for (size_t i = 0; i < add.size(); ++i)
+      std::string line = "";
+      while ((inp >> line) && !inp.eof())
       {
-        add[i] = (add[i] - max_min[1][i]) / (max_min[0][i] - max_min[1][i]);
+        std::vector<std::string> spt = split(line, ";");
+        std::vector<double> add(spt.size() - 1);
+        std::transform(spt.begin(), spt.end() - 1, add.begin(), [](auto x){ return std::stod(x); });
+        #pragma omp parallel for
+        for (size_t i = 0; i < add.size(); ++i)
+        {
+          add[i] = (add[i] - max_min[1][i]) / (max_min[0][i] - max_min[1][i]);
+        }
+        data.push_back(std::make_pair(std::stod(spt[spt.size() - 1]), add));
       }
-      data.push_back(std::make_pair(std::stod(spt[spt.size() - 1]), add));
+      inp.close();
+
+      size_t seed = std::chrono::system_clock::now().time_since_epoch().count();
+      shuffle (data.begin(), data.end(), std::default_random_engine(seed));
+
+      bool zero = true;
+      for (size_t i = 0; i < data.size(); ++i)
+      { 
+        std::vector<double> ex(1);
+        ex[0] = data[i].first;
+        output = train.DoItteration(data[i].second, ex);
+        output[0] = roundf(output[0] * 100) / 100;
+        std::cout << "Out: " << output[0] << " Exp: " << data[i].first << " Acc: " << (data[i].first - output[0]) << std::endl; 
+        if (std::abs(data[i].first - output[0]) >= 0.02)
+          zero = false;
+        
+      }
+      if (zero) break;
+      net.Save(CONF_FILE, COMMENTS);
     }
-    inp.close();
-
-    size_t seed = std::chrono::system_clock::now().time_since_epoch().count();
-    shuffle (data.begin(), data.end(), std::default_random_engine(seed));
-
-    for (size_t i = 0; i < data.size(); ++i)
+    else
     {
-      std::vector<double> ex(1);
-      ex[0] = data[i].first;
-      output = train.DoItteration(data[i].second, ex);
-      output[0] = roundf(output[0] * 100) / 100;
-      std::cout << "Out: " << output[0] << " Exp: " << data[i].first << " Acc: " << (data[i].first - output[0]) << std::endl; 
+      break;
     }
-    net.Save(CONF_FILE, COMMENTS);
   }
-}
   return 0;
 }

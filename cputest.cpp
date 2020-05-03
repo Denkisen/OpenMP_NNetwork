@@ -46,7 +46,7 @@ int cputest_main()
   {
     net.SetLayersCount(3);
     net.AddLayer(inp.size());
-    net.AddLayer(15);
+    net.AddLayer(4);
     net.AddLayer(exp.size());
   }
   train.LearningSpeed(TRAIN_SPEED);
@@ -56,7 +56,7 @@ int cputest_main()
   train.SetNetwork(&net);
 
   int i = 0;
-  while (i < 100)
+  while (i < 10000)
   {
     STOP_WATCH(start);
     out = train.DoItteration(inp, exp);
@@ -70,6 +70,6 @@ int cputest_main()
     std::cout << std::endl;
     i++;
   }
-  
+  net.Save(CONF_FILE, COMMENTS);
   return 0;
 }

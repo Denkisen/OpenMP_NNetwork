@@ -25,11 +25,11 @@ class LSTM : public INetwork
 {
 private:
   const std::string version = "LSTM:1.1";
-  std::vector<double> mem_cell;
   std::vector<double> last_output;
   size_t input_size = 0;
   WeightInitFunc *weight_init_func = []() { return ((double) std::rand() / RAND_MAX) - 0.5; };
   ActivationFunc *activation_func = [](double x) { return Sigmoid(x, 1.0); };
+  ActivationFunc *deriv_activation_func = [](double x) { return Derivative_Sigmoid(x, 1.0); };
 public:
   LSTM();
   ~LSTM();
@@ -39,6 +39,9 @@ public:
   bool Load(std::string file_path);
   void Save(std::string file_path, std::string comments);
   void SetLayout(size_t input_size, size_t output_size);
+  double Activate(double x) { return activation_func(x); }
+  double Derivative(double x) { return deriv_activation_func(x); }
+  void StateReset();
 };
 
 #endif

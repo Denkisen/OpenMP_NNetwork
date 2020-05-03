@@ -103,6 +103,15 @@ std::vector<double> LSTM::Pass(std::vector<double> input, ValueTable &temporary_
   return result;
 }
 
+void LSTM::StateReset()
+{
+  for (size_t i = 0; i < last_output.size(); ++i)
+  {
+    last_output[i] = 0.0;
+    mem_cell[i] = 0.0;
+  }
+}
+
 Weights LSTM::GetWeights(std::vector<size_t> &layout)
 {
   layout = weights_layout;

@@ -66,7 +66,6 @@ std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vect
   std::vector<double> result;
   Weights w = nullptr;
   ValueTable v;
-  std::vector<size_t> t_layout;
   std::vector<size_t> w_layout;  
 
   if (input.size() == 0 || expect.size() == 0)
@@ -83,7 +82,7 @@ std::vector<double> BackProp::MLPItteration(std::vector<double> input, std::vect
   
   try
   {
-    result = network->Pass(input, v, t_layout);
+    result = network->Pass(input, v, w_layout);
     w = network->GetWeights(w_layout);
   }
   catch (...)

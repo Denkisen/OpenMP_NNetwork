@@ -111,7 +111,6 @@ void MLP::AddLayer(size_t size)
       else
       {
         layer[i] = nullptr;
-        //layer[i][0] = weight_init_func();
       }
     }
   }
